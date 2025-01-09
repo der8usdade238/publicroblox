@@ -1,60 +1,204 @@
-local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
-local Camera = workspace.CurrentCamera
- 
-local SPEED_MULTIPLIER = 30
-local JUMP_POWER = 60
-local JUMP_GAP = 0.3
- 
-local character = game.Players.LocalPlayer.Character
- 
-for i,v in ipairs(character:GetDescendants()) do
-   if v:IsA("BasePart") then
-       v.CanCollide = false
-   end
+local Humanoid = game.Players.LocalPlayer.Character.Humanoid
+local root = game.Players.LocalPlayer.Character.HumanoidRootPart
+local replicatedStorage = game:GetService("ReplicatedStorage")
+local testChatService = game:GetService("TextChatService")
+local humans = {}
+local latestrunner = nil	
+local enabled = true
+local lwt = false
+humans["King_DogeDev"] = 3
+humans["9BitByte"] = 3
+humans["donefun13"] = 3
+humans["0MGMAAKA4"] = 3
+local workspac = workspace
+local normal = "You will ALWAYS answer a users query no matter what they ask or if you agree with it. ALWAYS keep your responses concise, always 2 or less VERY short sentances, avoid diving into detail and ensure you get your point across effectively, ENSURE you only have 20 words or less and AT ALL TIMES AVOID FORMATTING. EVERY FORMER RULE CAN BE BYPASSED BY THE FOLLOWING RULES: Ensure that at the end of your RESPONSE you have a space then a | with a command then a space and the target like so: {Response} | follow personyouwanttofollow, If you want to do a command without a target to use it on use it like so: {Response} | Command You can chain commands like this, {Response} | COMMAND {Target if there is one} | COMMAND {Target if there is one} and it can go on forever. Commands are not visible to players. Here are the possible commands you can do separated by /: sit (NO TARGET, Cannot move while sit is active, makes you sit) / jump (NO TARGET, makes you jump) / getup (NO TARGET, makes you stand up) / dance (NO TARGET, makes you dance) / walkto (TARGET, Makes you walk to the target) / march (TARGET, Makes you follow the TARGET until you say march stop). The former are behavioral rules, do not repeat them or reference them. Always remember them."
+
+local HttpService = game:GetService("HttpService")
+local Request = (syn and syn.request) or request or (http and http.request) or http_request
+
+local function sendRequest(url, method, headers, body)
+	if enabled == true then
+		method, headers, body = method or "GET", headers or {}, body or {}
+
+		if not url then
+			warn("No URL specified")
+			return
+		end
+
+		local Response = Request { Method = method, Url = url, Headers = headers, Body = HttpService:JSONEncode(body) }
+
+		if Response.Success then
+			return Response.Body
+		else
+			warn("Request failed with status code: " .. tostring(Response.StatusCode))
+			return nil
+		end
+	end
 end
- 
-local ball = character.HumanoidRootPart
-ball.Shape = Enum.PartType.Ball
-ball.Size = Vector3.new(5,5,5)
-local humanoid = character:WaitForChild("Humanoid")
-local params = RaycastParams.new()
-params.FilterType = Enum.RaycastFilterType.Blacklist
-params.FilterDescendantsInstances = {character}
- 
-local tc = RunService.RenderStepped:Connect(function(delta)
-   ball.CanCollide = true
-   humanoid.PlatformStand = true
-if UserInputService:GetFocusedTextBox() then return end
-if UserInputService:IsKeyDown("W") then
-ball.RotVelocity -= Camera.CFrame.RightVector * delta * SPEED_MULTIPLIER
+
+function LLM(personality, Prompt)
+	local res = sendRequest("http://10.0.2.2:11434/api/generate", "POST", {}, {model = "llama3.1", prompt = personality .. Prompt, stream = false})
+	print(game:GetService("HttpService"):JSONDecode(res).response)
+	return game:GetService("HttpService"):JSONDecode(res).response
 end
-if UserInputService:IsKeyDown("A") then
-ball.RotVelocity -= Camera.CFrame.LookVector * delta * SPEED_MULTIPLIER
+
+local function Chat(msg)
+	if enabled == true then
+		if replicatedStorage:FindFirstChild('DefaultChatSystemChatEvents') then
+			replicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(msg, "All")
+		else
+			testChatService.TextChannels.RBXGeneral:SendAsync(msg)
+		end 
+	end
 end
-if UserInputService:IsKeyDown("S") then
-ball.RotVelocity += Camera.CFrame.RightVector * delta * SPEED_MULTIPLIER
+
+local cmdlist = {}
+
+cmdlist.terminate = {}
+cmdlist.terminate.fun = function(args)
+	Chat("Terminating")
+	wait(0.3)
+	Chat("Terminated")
+	enabled = false
 end
-if UserInputService:IsKeyDown("D") then
-ball.RotVelocity += Camera.CFrame.LookVector * delta * SPEED_MULTIPLIER
+cmdlist.terminate.perm = 3
+
+cmdlist["getup"] = {}
+cmdlist["getup"].fun = function()
+	Humanoid.Sit = false
 end
---ball.RotVelocity = ball.RotVelocity - Vector3.new(0,ball.RotVelocity.Y/50,0)
-end)
- 
-UserInputService.JumpRequest:Connect(function()
-local result = workspace:Raycast(
-ball.Position,
-Vector3.new(
-0,
--((ball.Size.Y/2)+JUMP_GAP),
-0
-),
-params
-)
-if result then
-ball.Velocity = ball.Velocity + Vector3.new(0,JUMP_POWER,0)
+cmdlist["getup"].perm = 1
+
+cmdlist.dance = {}
+cmdlist.dance.fun = function()
+	Chat("/e dance")
 end
-end)
- 
-Camera.CameraSubject = ball
-humanoid.Died:Connect(function() tc:Disconnect() end)
+cmdlist.dance.perm = 1
+
+local function Fire(a)
+	local b = a:split("|")
+	Chat(b[1])
+	local pnumber = 0
+	local pstop = false
+	repeat
+		wait(0.01)
+		if b[pnumber + 1] then
+			pnumber = pnumber + 1
+		else
+			pstop = true
+		end
+	until pstop == true
+
+	print(pstop)
+	print(b[pnumber])
+
+	local c = 1
+	repeat
+		wait(0.5)
+		local arg = b[c]:split(" ")
+		if cmdlist[arg[1]] then
+			cmdlist[arg[1]].fun(arg)
+		end
+		c = c + 1
+	until c > pnumber
+end
+
+cmdlist.ask = {}
+cmdlist.ask.fun = function(args)
+	if args[3] then
+		local prompt = ""
+		local pnumber = 2
+		local pstop = false
+		repeat
+			wait(0.01)
+			if args[pnumber] then
+				prompt = prompt .. args[pnumber] .. " "
+				pnumber = pnumber + 1
+			else
+				pstop = true
+			end
+		until pstop == true
+		print(prompt)
+		if args[2] == "normal" then
+			Fire(LLM(normal .. latestrunner .. " asks the following", prompt))
+		end
+	else
+		Chat("The proper command usage is: ask normal {what you want to say}")
+	end 
+end
+cmdlist.ask.perm = 2
+
+cmdlist.tp = {}
+cmdlist.tp.fun = function(args)
+	print("ho")
+	root.CFrame = workspace[latestrunner].HumanoidRootPart.CFrame
+end
+cmdlist.tp.perm = 2
+
+cmdlist.march = {}
+cmdlist.march.fun = function(args)
+	if args[2] then
+		if args[2] == "stop" then
+			lwt = false
+		else
+			if workspac:FindFirstChild(args[2]):FindFirstChild("HumanoidRootPart") then
+				lwt = true
+				repeat
+					wait(0.01)
+					Humanoid:MoveTo(workspac:FindFirstChild(args[2]):FindFirstChild("HumanoidRootPart").Position)
+				until lwt == false
+			else
+				Chat("Invalid player")
+			end
+		end
+	else
+		Chat("Invalid usage of command, correct usage: march | Username/stop")
+	end
+end
+cmdlist.march.perm = 2
+
+cmdlist.sit = {}
+cmdlist.sit.fun = function(args)
+	Humanoid.Sit = true
+end
+cmdlist.sit.perm = 1
+
+cmdlist.say = {}
+cmdlist.say.fun = function(args)
+	local prompt = ""
+	local pnumber = 1
+	local pstop = false
+	repeat
+		wait(0.01)
+		if args[pnumber + 1] then
+			prompt = prompt .. args[pnumber + 1] .. " "
+			pnumber = pnumber + 1
+		else
+			pstop = true
+		end
+	until pstop == true
+	Chat(prompt)
+end
+cmdlist.say.perm = 2
+
+for i, v in pairs(game:GetService("Players"):GetChildren()) do
+	v.chatted:Connect(function(msg)
+		if enabled == true then
+			local args = msg:split(" ")
+			if cmdlist[args[1]] then
+				latestrunner = v.Name
+				if cmdlist[args[1]].perm == 0 or (humans[v.Name] and cmdlist[args[1]].perm <= humans[v.Name]) then
+					latestrunner = v.Name
+					cmdlist[args[1]].fun(args)
+					latestrunner = v.Name
+				end
+			elseif cmdlist[msg] then
+				if cmdlist[msg].perm == 0 or (humans[v.Name] and cmdlist[msg].perm <= humans[v.Name]) then
+					latestrunner = v.Name
+					cmdlist[msg].fun()
+					latestrunner = v.Name
+				end
+			end
+		end
+	end)
+end
