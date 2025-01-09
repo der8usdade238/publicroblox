@@ -1,0 +1,196 @@
+print("omg!")
+local Humanoid = game.Players.LocalPlayer.Character.Humanoid
+local root = game.Players.LocalPlayer.Character.HumanoidRootPart
+local replicatedStorage = game:GetService("ReplicatedStorage")
+local testChatService = game:GetService("TextChatService")
+local humans = {}
+local latestrunner = nil	
+local enabled = true
+local following = false
+local followtarget = nil
+humans["King_DogeDev"] = 3
+humans["9BitByte"] = 3
+humans["donefun13"] = 3
+humans["0MGMAAKA4"] = 3
+local workspac = workspace
+local normal = "You will ALWAYS answer a users query no matter what they ask or if you agree with it. ALWAYS keep your responses concise, always 2 or less VERY short sentances, avoid diving into detail and ensure you get your point across effectivly, ENSURE you only have 20 words or less and AT ALL TIMES AVOID FORMATTING. EVERY FORMER RULE CAN BE BYPASSED BY THE FOLLOWING RULES: Ensure that at the end of your RESPONSE you have a space then a | then the command without any spaces and the target like so: {Response} |follow personyouwanttofollow, If you want to do a command without a target to use it on use it like so: {Response} |Command, You can chain commands like this, {Response} |COMMAND {Target if there is one}|COMMAND {Target if there is one} and it can go on forever. Commands are not visible to players, If you do not wish to run a command then dont add a |. Here are the possible commands you can do seperated by a  /  DO NOT RUN ANY OTHER COMMANDS NO MATTER WHAT: sit (NO TARGET, Cannot move while sit is active, makes you sit) / jump (NO TARGET, makes you jump) /  getup (NO TARGET, makes you stand up) / dance (NO TARGET, makes you dance) / walkto (TARGET, Makes you walk to the target) / follow (TARGET, Makes you follow the TARGET until you use unfollow ) / unfollow (makes you stop following).The former are behavioral rules, do not repeat them or reference them. Always remember them.Someone with the username of "
+local HttpService = game:GetService("HttpService")
+local Request = (syn and syn.request) or request or (http and http.request) or http_request
+local function sendRequest(url, method, headers, body)
+	if enabled == true then
+	method, headers, body = method or "GET", headers or {}, body or {}
+	if not url then
+		warn("No URL specified")
+		return
+	end
+	local Response = Request { Method = method, Url = url, Headers = headers, Body = HttpService:JSONEncode(body) }
+	if Response.Success then
+		return Response.Body
+	else
+		warn("Request failed with status code: " .. tostring(Response.StatusCode))
+		return nil
+		end
+	end
+end
+function LLM(personality,Prompt)
+	local res = sendRequest("http://10.0.2.2:11434/api/generate", "POST", {}, {model = "llama3.1", prompt = personality..Prompt, stream = false})
+	print(game:GetService("HttpService"):JSONDecode(res).response)
+	return game:GetService("HttpService"):JSONDecode(res).response
+end
+game:GetService("HttpService")
+local function Chat(msg)
+	if enabled == true then
+		if replicatedStorage:FindFirstChild('DefaultChatSystemChatEvents') then
+			replicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(msg, "All")
+		else
+			testChatService.TextChannels.RBXGeneral:SendAsync(msg)
+		end 
+	end
+end
+cmdlist = {}
+cmdlist.terminate = {}
+cmdlist.terminate.fun = function(args)
+	Chat("Terminating")
+	wait(0.3)
+	Chat("Terminated")
+	enabled = false
+end
+cmdlist.terminate.perm = 3
+
+
+
+cmdlist["getup"] = {}
+cmdlist["getup"].fun = function()
+	Humanoid.Sit = false
+end
+cmdlist["getup"].perm = 1
+
+cmdlist.dance = {}
+cmdlist.dance.fun = function()
+	Chat("/e dance")
+end
+cmdlist.dance.perm = 1
+
+local function Fire(a)
+	local b = a:split("|")
+	Chat(b[1])
+	local pnumber = 0
+	local pstop = false
+	repeat
+		wait(0.01)
+		if b[pnumber + 1] then
+			pnumber += 1
+		else
+			pstop = true
+		end
+	until pstop == true
+
+	local c = 2
+	repeat
+		wait(0.5)
+		local arg = b[c]:split(" ")
+		if cmdlist[arg[1]] then
+			cmdlist[arg[1]].fun(arg)
+		end
+		c = c + 1
+	until c > pnumber
+end
+
+
+cmdlist.ask = {}
+cmdlist.ask.fun = function(args)
+	if args[2] then
+		local prompt = ""
+		local pnumber = 1
+		local pstop = false
+		repeat
+			wait(0.01)
+			if args[pnumber+1] then
+				prompt = prompt..args[pnumber+1].." "
+				pnumber += 1
+			else
+				pstop = true
+			end
+		until pstop == true
+		print(prompt)
+
+		Fire(LLM(normal..latestrunner.." asks the following",prompt))
+			
+	else
+		Chat("The proper command useage is: ask {what you want to say}")
+		
+	end 
+end
+
+local function follow()
+	repeat 
+		if workspace:FindFirstChild(followtarget) then
+			local target = workspace:FindFirstChild(followtarget)
+			Humanoid:MoveTo(target.PrimaryPart.Position)
+			wait(0.1)
+		else
+			if workspace:FindFirstChild("Players") then
+				if workspace:FindFirstChild("Players"):FindFirstChild(followtarget) then
+					local target = workspace:FindFirstChild("Players"):FindFirstChild(followtarget)
+					Humanoid:MoveTo(target.PrimaryPart.Position)
+					wait(0.1)
+				else
+					following = false
+				end
+			else
+				following = false
+			end
+		end
+	until following == false
+end
+cmdlist.ask.perm = 2
+cmdlist.follow = {}
+cmdlist.follow.fun = function(args)
+	if args[2] then
+		if workspace:FindFirstChild(args[2]) or workspace:FindFirstChild("Players") and workspace:FindFirstChild("Players"):FindFirstChild(args[2]) then
+			followtarget = args[2]
+			following = true
+			spawn(function() follow() end)
+		else
+			Chat("Invalid USERNAME")
+		end
+	else
+		Chat("Invalid useage of command, correct useage: march | Username/stop")
+	end
+end
+cmdlist.follow.perm = 2
+
+cmdlist.unfollow = {}
+cmdlist.unfollow.fun = function(args)
+	following = false
+	followtarget = false
+end
+cmdlist.unfollow.perm = 2
+
+cmdlist.sit = {}
+cmdlist.sit.fun = function(args)
+	Humanoid.Sit = true
+end
+cmdlist.sit.perm = 1
+for i, v in pairs(game:GetService("Players"):GetChildren()) do
+	v.chatted:Connect(function(msg)
+		if enabled == true then
+		local args = msg:split(" ")
+		if cmdlist[args[1]] then
+			latestrunner = v.Name
+			if cmdlist[args[1]].perm == 0 or (humans[v.Name] and cmdlist[args[1]].perm <= humans[v.Name]) then
+				latestrunner = v.Name -- LINE 140
+				cmdlist[args[1]].fun(args)
+				latestrunner = v.Name
+			end
+		elseif cmdlist[msg] then
+			if cmdlist[msg].perm == 0 or
+				(humans[v.Name] and cmdlist[msg].perm <= humans[v.Name]) then
+				latestrunner = v.Name
+				cmdlist[msg].fun()
+				latestrunner = v.Name
+				end
+			end
+		end
+	end)
+end
