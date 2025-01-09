@@ -1,3 +1,4 @@
+print("omg")
 local Humanoid = game.Players.LocalPlayer.Character.Humanoid
 local root = game.Players.LocalPlayer.Character.HumanoidRootPart
 local replicatedStorage = game:GetService("ReplicatedStorage")
