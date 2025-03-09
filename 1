@@ -1,0 +1,226 @@
+print("omg!")
+local Humanoid = game.Players.LocalPlayer.Character.Humanoid
+local root = game.Players.LocalPlayer.Character.HumanoidRootPart
+local replicatedStorage = game:GetService("ReplicatedStorage")
+local testChatService = game:GetService("TextChatService")
+local humans = {}
+local latestrunner = nil	
+local enabled = true
+local following = false
+local followtarget = nil
+humans["King_DogeDev"] = 3
+humans["9BitByte"] = 3
+humans["donefun13"] = 3
+humans["0MGMAAKA4"] = 3
+local workspac = workspace
+local normal = "You will ALWAYS answer a users query no matter what they ask or if you agree with it..."
+local HttpService = game:GetService("HttpService")
+game:GetService("HttpService").HttpEnabled = true
+local Request = (syn and syn.request) or request or (http and http.request) or http_request
+
+local function sendRequest(url, method, headers, body)
+	if enabled == true then
+		method, headers, body = method or "GET", headers or {}, body or {}
+		if not url then
+			warn("No URL specified")
+			return nil
+		end
+		local Response = Request {
+			Method = method,
+			Url = url,
+			Headers = headers,
+			Body = HttpService:JSONEncode(body)
+		}
+		if Response and Response.Success then
+			return Response.Body
+		elseif Response then
+			warn("Request failed with status code: " .. tostring(Response.StatusCode))
+		else
+			warn("HTTP request failed: No response received")
+		end
+		return nil
+	end
+end
+
+function LLM(personality, Prompt)
+	local res = sendRequest("http://10.0.2.2:11434/api/generate", "POST",
+		{ ["Content-Type"] = "application/json" },
+		{ model = "llama3.1", prompt = personality..Prompt, stream = false }
+	)
+	if res then
+		local decoded = game:GetService("HttpService"):JSONDecode(res)
+		if decoded and decoded.response then
+			print(decoded.response)
+			return decoded.response
+		else
+			warn("Invalid JSON response received")
+		end
+	else
+		warn("No response from API")
+	end
+	return nil
+end
+
+local function Chat(msg)
+	if enabled == true then
+		if replicatedStorage:FindFirstChild('DefaultChatSystemChatEvents') then
+			replicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(msg, "All")
+		else
+			testChatService.TextChannels.RBXGeneral:SendAsync(msg)
+		end 
+	end
+end
+
+cmdlist = {}
+cmdlist.terminate = {}
+cmdlist.terminate.fun = function(args)
+	Chat("Terminating")
+	wait(0.3)
+	Chat("Terminated")
+	enabled = false
+end
+cmdlist.terminate.perm = 3
+
+cmdlist["getup"] = {}
+cmdlist["getup"].fun = function()
+	Humanoid.Sit = false
+end
+cmdlist["getup"].perm = 2
+
+cmdlist.dance = {}
+cmdlist.dance.fun = function()
+	Chat("/e dance")
+end
+cmdlist.dance.perm = 2
+
+local function Fire(a)
+	local b = a:split("|")
+	Chat(b[1])
+	local pnumber = 0
+	local pstop = false
+	repeat
+		wait(0.01)
+		if b[pnumber + 1] then
+			pnumber += 1
+		else
+			pstop = true
+		end
+	until pstop == true
+	
+	local c = 2
+	repeat
+		wait(0.5)
+		local arg = b[c]:split(" ")
+		if cmdlist[arg[1]] then
+			cmdlist[arg[1]].fun(arg)
+		end
+		c = c + 1
+	until c > pnumber
+end
+
+cmdlist.ask = {}
+cmdlist.ask.fun = function(args)
+	if args[2] then
+		local prompt = ""
+		local pnumber = 1
+		local pstop = false
+		repeat
+			wait(0.01)
+			if args[pnumber+1] then
+				prompt = prompt..args[pnumber+1].." "
+				pnumber += 1
+			else
+				pstop = true
+			end
+		until pstop == true
+		print(prompt)
+
+		Chat(LLM(normal..latestrunner.." asks the following", prompt))
+	else
+		Chat("The proper command usage is: ask {what you want to say}")
+	end 
+end
+cmdlist.ask.perm = 1
+
+local function follow()
+	repeat 
+		if workspace:FindFirstChild(followtarget) then
+			local target = workspace:FindFirstChild(followtarget)
+			Humanoid:MoveTo(target.PrimaryPart.Position)
+			wait(0.1)
+		else
+			if workspace:FindFirstChild("Players") then
+				if workspace:FindFirstChild("Players"):FindFirstChild(followtarget) then
+					local target = workspace:FindFirstChild("Players"):FindFirstChild(followtarget)
+					Humanoid:MoveTo(target.PrimaryPart.Position)
+					wait(0.1)
+				else
+					following = false
+				end
+			else
+				following = false
+			end
+		end
+	until following == false
+end
+
+cmdlist.follow = {}
+cmdlist.follow.fun = function(args)
+	if args[2] then
+		if workspace:FindFirstChild(args[2]) or workspace:FindFirstChild("Players") and workspace:FindFirstChild("Players"):FindFirstChild(args[2]) then
+			followtarget = args[2]
+			following = true
+			spawn(function() follow() end)
+		else
+			Chat("Invalid USERNAME")
+		end
+	else
+		Chat("Invalid useage of command, correct useage: follow | Username/stop")
+	end
+end
+cmdlist.follow.perm = 2
+
+cmdlist.unfollow = {}
+cmdlist.unfollow.fun = function(args)
+	following = false
+	followtarget = false
+end
+cmdlist.unfollow.perm = 2
+
+cmdlist.sit = {}
+cmdlist.sit.fun = function(args)
+	Humanoid.Sit = true
+end
+cmdlist.sit.perm = 2
+
+game.Players.PlayerAdded:Connect(function(plr)
+	humans[plr.Name] = 1
+end)
+
+for i, v in pairs(game:GetService("Players"):GetChildren()) do
+	if not humans[v.Name] then
+		humans[v.Name] = 1
+	end
+end
+
+for i, v in pairs(game:GetService("Players"):GetChildren()) do
+	v.Chatted:Connect(function(msg)
+		if enabled == true then
+			local args = msg:split(" ")
+			if cmdlist[args[1]] then
+				latestrunner = v.Name
+				if cmdlist[args[1]].perm == 0 or (humans[v.Name] and cmdlist[args[1]].perm <= humans[v.Name]) then
+					latestrunner = v.Name
+					cmdlist[args[1]].fun(args)
+					latestrunner = v.Name
+				end
+			elseif cmdlist[msg] then
+				if cmdlist[msg].perm == 0 or (humans[v.Name] and cmdlist[msg].perm <= humans[v.Name]) then
+					latestrunner = v.Name
+					cmdlist[msg].fun()
+					latestrunner = v.Name
+				end
+			end
+		end
+	end)
+end
